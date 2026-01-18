@@ -3,6 +3,13 @@ import pandas as pd
 import time
 import random
 
+# --- GÜVENLİ RERUN ---
+def safe_rerun():
+    try:
+        st.rerun()
+    except AttributeError:
+        st.experimental_rerun()
+
 # --- AYARLAR ---
 st.set_page_config(page_title="YTÜ CİNGEN BET", layout="wide")
 
@@ -29,22 +36,16 @@ st.markdown("""
 # --- SABİTLER ---
 GOL_ARALIKLARI = ["0", "1-2", "3-4", "5-6", "7-8", "9+"]
 IY_MS_SECENEKLER = ["1/1", "1/X", "1/2", "X/1", "X/X", "X/2", "2/1", "2/X", "2/2"]
-NEWS = ["GİZLİ SAKLI YOK, HER ŞEY ORTADA...", "KİMİN ELİ KİMİN CEBİNDE BELLİ OLSUN...", "FC26 LİGİNDE ŞEFFAFLIK DÖNEMİ!", "BANKOLARI GÖRELİM..."]
+NEWS = ["ŞİKE YOK, AFFETMEK YOK...", "KENDİ MAÇINA OYNAYAN DİSKALİFİYE OLUR...", "LİG KIZIŞIYOR...", "GURME BAHİSÇİLER BURAYA..."]
 
 # --- HAFIZA ---
 if 'matches' not in st.session_state: st.session_state.matches = [] 
 if 'bets' not in st.session_state: st.session_state.bets = []
+if 'teams' not in st.session_state: st.session_state.teams = [] 
 if 'match_id_counter' not in st.session_state: st.session_state.match_id_counter = 0
 if 'admin_ev' not in st.session_state: st.session_state.admin_ev = ""
 if 'admin_dep' not in st.session_state: st.session_state.admin_dep = ""
-if 'msg' not in st.session_state: st.session_state.msg = "" # Mesaj göstermek için
-
-# --- GÜVENLİ RERUN ---
-def safe_rerun():
-    try:
-        st.rerun()
-    except AttributeError:
-        st.experimental_rerun()
+if 'msg' not in st.session_state: st.session_state.msg = "" 
 
 # --- YARDIMCI FONKSİYONLAR ---
 def get_gol_aralik_index(toplam_gol):
@@ -64,26 +65,41 @@ def calculate_proximity_points(actual, predicted):
         else: return 0           
     except: return 0
 
-# --- CALLBACK FONKSİYONLARI (HATA ÇÖZÜMÜ BURADA) ---
-def add_match_callback():
-    ev = st.session_state.admin_ev
-    dep = st.session_state.admin_dep
-    
-    if ev and dep:
-        m_id = st.session_state.match_id_counter
-        st.session_state.matches.append({
-            "id": m_id, "ev": ev, "dep": dep,
-            "status": "open", 
-            "score_ev": None, "score_dep": None,
-            "iy_ev": None, "iy_dep": None
-        })
-        st.session_state.match_id_counter += 1
-        # Kutuları temizle
-        st.session_state.admin_ev = ""
-        st.session_state.admin_dep = ""
-        st.session_state.msg = f"✅ {ev} vs {dep} EKLENDİ!"
+# --- CALLBACKS ---
+def add_team_callback():
+    yeni_takim = st.session_state.new_team_input
+    if yeni_takim and yeni_takim not in st.session_state.teams:
+        st.session_state.teams.append(yeni_takim)
+        st.session_state.msg = f"✅ {yeni_takim} EKLENDİ!"
+        st.session_state.new_team_input = "" 
+    elif yeni_takim in st.session_state.teams:
+        st.session_state.msg = "⚠️ BU TAKIM ZATEN VAR!"
     else:
-        st.session_state.msg = "❌ Takım isimlerini gir!"
+        st.session_state.msg = "❌ BOŞ İSİM GİRİLMEZ!"
+
+def generate_fixture_callback():
+    takimlar = st.session_state.teams
+    if len(takimlar) < 2:
+        st.session_state.msg = "⚠️ EN AZ 2 TAKIM LAZIM!"
+        return
+    
+    count = 0
+    for ev in takimlar:
+        for dep in takimlar:
+            if ev != dep:
+                exists = any(m['ev'] == ev and m['dep'] == dep for m in st.session_state.matches)
+                if not exists:
+                    m_id = st.session_state.match_id_counter
+                    st.session_state.matches.append({
+                        "id": m_id, "ev": ev, "dep": dep,
+                        "status": "open", 
+                        "score_ev": None, "score_dep": None,
+                        "iy_ev": None, "iy_dep": None
+                    })
+                    st.session_state.match_id_counter += 1
+                    count += 1
+    if count > 0: st.session_state.msg = f"🚀 {count} MAÇTAN OLUŞAN FİKSTÜR HAZIR!"
+    else: st.session_state.msg = "⚠️ FİKSTÜR ZATEN VAR."
 
 def swap_callback():
     temp = st.session_state.admin_ev
@@ -91,58 +107,70 @@ def swap_callback():
     st.session_state.admin_dep = temp
     st.session_state.msg = "↔️ Takımlar yer değiştirdi."
 
+def add_match_callback():
+    ev = st.session_state.admin_ev
+    dep = st.session_state.admin_dep
+    if ev and dep:
+        m_id = st.session_state.match_id_counter
+        st.session_state.matches.append({
+            "id": m_id, "ev": ev, "dep": dep,
+            "status": "open", "score_ev": None, "score_dep": None, "iy_ev": None, "iy_dep": None
+        })
+        st.session_state.match_id_counter += 1
+        st.session_state.admin_ev = ""
+        st.session_state.admin_dep = ""
+        st.session_state.msg = f"✅ {ev} vs {dep} EKLENDİ!"
+    else: st.session_state.msg = "❌ Takım isimlerini gir!"
+
 def reset_system_callback():
     st.session_state.matches = []
     st.session_state.bets = []
+    st.session_state.teams = []
     st.session_state.match_id_counter = 0
-    st.session_state.msg = "♻️ SİSTEM SIFIRLANDI"
+    st.session_state.msg = "♻️ HER ŞEY SIFIRLANDI"
 
 # --- SAYFA ÜSTÜ ---
 st.markdown(f'<div class="ticker-wrap"><div class="ticker"><div class="ticker-item">{" | ".join(NEWS)}</div></div></div>', unsafe_allow_html=True)
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.header("🕵️ ADMİN PANELİ")
-    
-    # Inputlar (Key ile bağlı)
+    st.header("⚙️ LİG YÖNETİMİ")
+    st.text_input("TAKIM / OYUNCU EKLE:", key="new_team_input", on_change=add_team_callback)
+    if st.session_state.teams:
+        st.write("📋 **LİGDEKİ TAKIMLAR:**")
+        for t in st.session_state.teams: st.write(f"- {t}")
+    st.write("---")
+    st.button("📅 LİGİ KUR (FİKSTÜR)", on_click=generate_fixture_callback)
+    if st.session_state.msg: st.info(st.session_state.msg)
+    st.divider()
+    st.header("TEK MAÇ EKLE")
     st.text_input("EV SAHİBİ:", key="admin_ev")
     st.text_input("DEPLASMAN:", key="admin_dep")
-    
-    # Butonlar Callback'e bağlı (on_click)
-    st.button("↔️ YER DEĞİŞTİR", on_click=swap_callback)
-    st.write("---")
+    st.button("↔️ SWAP", on_click=swap_callback)
     st.button("BÜLTENE EKLE", on_click=add_match_callback)
-    
-    # Mesaj Kutusu (Sidebar'da görünsün)
-    if st.session_state.msg:
-        st.info(st.session_state.msg)
-            
     st.divider()
-    st.button("SİSTEMİ SIFIRLA", on_click=reset_system_callback)
+    st.button("🔥 HER ŞEYİ SIFIRLA", on_click=reset_system_callback)
 
 # --- BAŞLIK ---
-st.markdown('<div class="baslik">💸 KAÇAK BET: ŞEFFAF MOD 💸</div>', unsafe_allow_html=True)
-st.info("ℹ️ PUANLAMA: Tam İY/MS (5p) | Sadece MS (3p) | Sadece İY (1p) | Gol & Fark (5-3-1p) | Banko (x2)")
+st.markdown('<div class="baslik">💸 KAÇAK BET: ETİK MOD 💸</div>', unsafe_allow_html=True)
+st.info("ℹ️ KURAL: Ligdeki oyuncular kendi maçlarına bahis yapamaz! Dışarıdan izleyenler serbest.")
 
-# --- SEKMELER (5 ADET) ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 KUPON YAP", "🔒 SONUÇ GİR", "🏆 LİDERLİK", "👀 CANLI KUPONLAR", "📜 GEÇMİŞ"])
+# --- SEKMELER ---
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📝 KUPON YAP", "🔒 SKOR GİR", "💸 BAHİS LİGİ", "⚽ FC26 LİGİ", "👀 CANLI", "📜 GEÇMİŞ"])
 
 # --- TAB 1: KUPON YAP ---
 with tab1:
     acik_maclar = [m for m in st.session_state.matches if m['status'] == 'open']
-    
-    if not acik_maclar:
-        st.info("⚠️ BAHİSE AÇIK MAÇ YOK.")
+    if not acik_maclar: st.info("⚠️ BÜLTEN BOŞ.")
     else:
         kullanici = st.text_input("KUMARBAZ İSMİ:", key="bet_user")
         st.write("---")
         kupon_data = {} 
-        
         for m in acik_maclar:
             st.markdown(f"<div class='mac-kutusu'><div class='takimlar'>{m['ev']} vs {m['dep']}</div></div>", unsafe_allow_html=True)
             c1, c2, c3, c4 = st.columns([2, 2, 2, 1])
             with c1:
-                st.markdown("<div class='oran-kutusu'>🌗 İY / MS (ZORUNLU)</div>", unsafe_allow_html=True)
+                st.markdown("<div class='oran-kutusu'>🌗 İY / MS</div>", unsafe_allow_html=True)
                 iy_ms = st.selectbox("Seçim:", IY_MS_SECENEKLER, key=f"iyms_{m['id']}", index=None, placeholder="Seçiniz...")
             with c2:
                 st.markdown("<div class='oran-kutusu'>TOPLAM GOL</div>", unsafe_allow_html=True)
@@ -154,19 +182,29 @@ with tab1:
             with c4:
                 st.markdown("<div class='oran-kutusu'>🃏 BANKO</div>", unsafe_allow_html=True)
                 is_banko = st.checkbox("x2", key=f"bnk_{m['id']}")
-            
             kupon_data[m['id']] = {"iy_ms": iy_ms, "tg_idx": tg_index, "gf": gf, "banko": is_banko}
             st.divider()
             
         if st.button("KUPONU YATIR 💵"):
             hata_mesajlari = []
             banko_count = sum([1 for x in kupon_data.values() if x['banko']])
-            if not kullanici: hata_mesajlari.append("İSİMSİZ KUPON OLMAZ!")
+            
+            # İsim Normalizasyonu (Büyük/Küçük harf duyarlılığını kaldırmak için)
+            kullanici_clean = kullanici.strip() if kullanici else ""
+            
+            if not kullanici_clean: hata_mesajlari.append("İSİMSİZ KUPON OLMAZ!")
             if banko_count > 1: hata_mesajlari.append(f"❌ SADECE 1 BANKO! ({banko_count} seçtin)")
             
             for mid, data in kupon_data.items():
                 m_obj = next((x for x in acik_maclar if x['id'] == mid), None)
                 mac_adi = f"{m_obj['ev']} vs {m_obj['dep']}"
+                
+                # --- ŞİKE KONTROLÜ (YENİ!) ---
+                # Eğer kullanıcının ismi Ev Sahibi veya Deplasman ile aynıysa engelle
+                if kullanici_clean.lower() == m_obj['ev'].lower() or kullanici_clean.lower() == m_obj['dep'].lower():
+                     hata_mesajlari.append(f"⛔ {mac_adi}: ETİK KURALI! Kendi maçına bahis yapamazsın ({kullanici_clean})!")
+                     continue
+
                 iyms, tg, gf = data["iy_ms"], data["tg_idx"], data["gf"]
                 if iyms is None or tg is None:
                     hata_mesajlari.append(f"❌ {mac_adi}: Eksik Seçim!")
@@ -174,13 +212,13 @@ with tab1:
                 
                 tahmin_ms = iyms.split("/")[1]
                 if tahmin_ms == "1": 
-                    if gf <= 0: hata_mesajlari.append(f"❌ {mac_adi}: MS '1' dedin, Fark Pozitif olmalı!")
-                    if tg == 0: hata_mesajlari.append(f"❌ {mac_adi}: MS '1' dedin, 0 gol olmaz!")
+                    if gf <= 0: hata_mesajlari.append(f"❌ {mac_adi}: MS '1' için Fark Pozitif olmalı!")
+                    if tg == 0: hata_mesajlari.append(f"❌ {mac_adi}: MS '1' için Gol 0 olamaz!")
                 elif tahmin_ms == "2": 
-                    if gf >= 0: hata_mesajlari.append(f"❌ {mac_adi}: MS '2' dedin, Fark Negatif olmalı!")
-                    if tg == 0: hata_mesajlari.append(f"❌ {mac_adi}: MS '2' dedin, 0 gol olmaz!")
+                    if gf >= 0: hata_mesajlari.append(f"❌ {mac_adi}: MS '2' için Fark Negatif olmalı!")
+                    if tg == 0: hata_mesajlari.append(f"❌ {mac_adi}: MS '2' için Gol 0 olamaz!")
                 elif tahmin_ms == "X": 
-                    if gf != 0: hata_mesajlari.append(f"❌ {mac_adi}: MS 'X' dedin, Fark 0 olmalı!")
+                    if gf != 0: hata_mesajlari.append(f"❌ {mac_adi}: MS 'X' için Fark 0 olmalı!")
                 
                 max_goals_map = {0:0, 1:2, 2:4, 3:6, 4:8, 5:99}
                 if abs(gf) > max_goals_map[tg]:
@@ -189,42 +227,42 @@ with tab1:
             if hata_mesajlari:
                 for err in hata_mesajlari: st.error(err)
             else:
-                st.session_state.bets = [b for b in st.session_state.bets if b['user'] != kullanici]
+                st.session_state.bets = [b for b in st.session_state.bets if b['user'] != kullanici_clean]
                 for mid, data in kupon_data.items():
                     st.session_state.bets.append({
-                        "user": kullanici, "match_id": mid,
+                        "user": kullanici_clean, "match_id": mid,
                         "iy_ms": data["iy_ms"], "tg_idx": data["tg_idx"], "gf": data["gf"], "banko": data["banko"]
                     })
-                st.success(f"✅ {kullanici} KUPONU ONAYLANDI!")
+                st.success(f"✅ {kullanici_clean} KUPONU ONAYLANDI!")
                 time.sleep(2)
                 safe_rerun()
 
 # --- TAB 2: ADMİN ---
 with tab2:
     st.write("### 🔒 ADMİN SKOR GİRİŞİ")
-    for m in st.session_state.matches:
-        if m['status'] == 'open':
-            st.warning(f"🟢 {m['ev']} vs {m['dep']}")
-            c1, c2 = st.columns(2)
-            with c1: iy_ev = st.number_input("İY Ev", 0, key=f"iy_ev_{m['id']}")
-            with c2: iy_dep = st.number_input("İY Dep", 0, key=f"iy_dep_{m['id']}")
-            c3, c4 = st.columns(2)
-            with c3: ms_ev = st.number_input("MS Ev", 0, key=f"ms_ev_{m['id']}")
-            with c4: ms_dep = st.number_input("MS Dep", 0, key=f"ms_dep_{m['id']}")
-            if st.button(f"MAÇI BİTİR (ID: {m['id']})", key=f"btn_end_{m['id']}"):
-                if ms_ev < iy_ev or ms_dep < iy_dep: st.error("HATA: MS < İY olamaz!")
-                else:
-                    m['score_ev'], m['score_dep'] = ms_ev, ms_dep
-                    m['iy_ev'], m['iy_dep'] = iy_ev, iy_dep
-                    m['status'] = 'closed'
-                    st.success("SKOR KAYDEDİLDİ!")
-                    safe_rerun()
-        else:
-            st.success(f"🔴 {m['ev']} {m['score_ev']} - {m['score_dep']} {m['dep']}")
+    aciklar = [m for m in st.session_state.matches if m['status'] == 'open']
+    if not st.session_state.matches: st.info("Maç yok.")
+    for m in aciklar:
+        st.warning(f"🟢 {m['ev']} vs {m['dep']}")
+        c1, c2 = st.columns(2)
+        with c1: iy_ev = st.number_input("İY Ev", 0, key=f"iy_ev_{m['id']}")
+        with c2: iy_dep = st.number_input("İY Dep", 0, key=f"iy_dep_{m['id']}")
+        c3, c4 = st.columns(2)
+        with c3: ms_ev = st.number_input("MS Ev", 0, key=f"ms_ev_{m['id']}")
+        with c4: ms_dep = st.number_input("MS Dep", 0, key=f"ms_dep_{m['id']}")
+        if st.button(f"MAÇI BİTİR (ID: {m['id']})", key=f"btn_end_{m['id']}"):
+            if ms_ev < iy_ev or ms_dep < iy_dep: st.error("HATA: MS < İY olamaz!")
+            else:
+                m['score_ev'], m['score_dep'] = ms_ev, ms_dep
+                m['iy_ev'], m['iy_dep'] = iy_ev, iy_dep
+                m['status'] = 'closed'
+                st.success("SKOR KAYDEDİLDİ!")
+                safe_rerun()
+        st.write("---")
 
-# --- TAB 3: LİDERLİK ---
+# --- TAB 3: BAHİS LİGİ ---
 with tab3:
-    st.write("### 🏆 CANLI TABLO")
+    st.write("### 💸 BAHİS LİGİ (Tahminciler)")
     leaderboard = {}
     stats = {}
     closed_matches = {m['id']: m for m in st.session_state.matches if m['status'] == 'closed'}
@@ -273,37 +311,58 @@ with tab3:
             st.markdown(f"<div style='background:#222; padding:10px; margin:5px; border-left:5px solid {color}; color:{color}; font-size:20px; font-weight:bold;'>{rank}. {usr} <span style='font-size:14px; color:#aaa;'>{rutbe}</span> <span style='float:right; color:#00ff00;'>{score} P</span></div>", unsafe_allow_html=True)
     else: st.info("Puan yok.")
 
-# --- TAB 4: CANLI KUPONLAR ---
+# --- TAB 4: FC26 PUAN DURUMU ---
 with tab4:
-    st.write("### 👀 KİM NE OYNADI? (Canlı Maçlar)")
+    st.write("### ⚽ FC26 LİG TABLOSU")
+    league_table = {t: {'O':0, 'G':0, 'B':0, 'M':0, 'AG':0, 'YG':0, 'AV':0, 'P':0} for t in st.session_state.teams}
+    closed_list = [m for m in st.session_state.matches if m['status'] == 'closed']
+    for m in closed_list:
+        t1, t2 = m['ev'], m['dep']
+        s1, s2 = m['score_ev'], m['score_dep']
+        if t1 not in league_table: league_table[t1] = {'O':0, 'G':0, 'B':0, 'M':0, 'AG':0, 'YG':0, 'AV':0, 'P':0}
+        if t2 not in league_table: league_table[t2] = {'O':0, 'G':0, 'B':0, 'M':0, 'AG':0, 'YG':0, 'AV':0, 'P':0}
+        league_table[t1]['O'] += 1; league_table[t2]['O'] += 1
+        league_table[t1]['AG'] += s1; league_table[t1]['YG'] += s2
+        league_table[t2]['AG'] += s2; league_table[t2]['YG'] += s1
+        league_table[t1]['AV'] = league_table[t1]['AG'] - league_table[t1]['YG']
+        league_table[t2]['AV'] = league_table[t2]['AG'] - league_table[t2]['YG']
+        if s1 > s2:
+            league_table[t1]['G'] += 1; league_table[t1]['P'] += 3
+            league_table[t2]['M'] += 1
+        elif s1 == s2:
+            league_table[t1]['B'] += 1; league_table[t1]['P'] += 1
+            league_table[t2]['B'] += 1; league_table[t2]['P'] += 1
+        else:
+            league_table[t2]['G'] += 1; league_table[t2]['P'] += 3
+            league_table[t1]['M'] += 1
+    if league_table:
+        df_league = pd.DataFrame.from_dict(league_table, orient='index')
+        df_league = df_league.sort_values(by=['P', 'AV', 'AG'], ascending=False)
+        st.table(df_league)
+    else: st.info("Takım ekleyin veya maç oynayın.")
+
+# --- TAB 5: CANLI KUPONLAR ---
+with tab5:
+    st.write("### 👀 KİM NE OYNADI?")
     acik_maclar_listesi = [m for m in st.session_state.matches if m['status'] == 'open']
-    if not acik_maclar_listesi:
-        st.info("Şu an oynanan aktif bir maç yok.")
+    if not acik_maclar_listesi: st.info("Oynanan maç yok.")
     else:
         for m in acik_maclar_listesi:
             st.markdown(f"<div class='canli-mac-header'>⚽ {m['ev']} vs {m['dep']}</div>", unsafe_allow_html=True)
             bu_maca_bahisler = [b for b in st.session_state.bets if b['match_id'] == m['id']]
-            if not bu_maca_bahisler:
-                st.warning("Henüz kimse bu maça kupon yapmadı.")
+            if not bu_maca_bahisler: st.warning("Bahis yok.")
             else:
                 canli_data = []
                 for b in bu_maca_bahisler:
                     tg_text = GOL_ARALIKLARI[b['tg_idx']]
                     banko_text = "🔥 EVET" if b.get('banko', False) else "-"
-                    canli_data.append({
-                        "KUMARBAZ": b['user'],
-                        "İY / MS": b['iy_ms'],
-                        "TOPLAM GOL": tg_text,
-                        "FARK": b['gf'],
-                        "BANKO?": banko_text
-                    })
+                    canli_data.append({"KUMARBAZ": b['user'], "İY / MS": b['iy_ms'], "GOL": tg_text, "FARK": b['gf'], "BANKO?": banko_text})
                 st.table(pd.DataFrame(canli_data))
             st.write("---")
 
-# --- TAB 5: GEÇMİŞ ---
-with tab5:
+# --- TAB 6: GEÇMİŞ ---
+with tab6:
     st.write("### 📜 GEÇMİŞ")
-    closed_list = [m for m in st.session_state.matches if m['status'] == 'closed']
     if not closed_list: st.info("Yok.")
     else:
         for m in reversed(closed_list):
