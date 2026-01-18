@@ -42,6 +42,10 @@ if 'matches' not in st.session_state: st.session_state.matches = []
 if 'bets' not in st.session_state: st.session_state.bets = []
 if 'match_id_counter' not in st.session_state: st.session_state.match_id_counter = 0
 
+# Inputlar için session key'leri başlat
+if 'admin_ev' not in st.session_state: st.session_state.admin_ev = ""
+if 'admin_dep' not in st.session_state: st.session_state.admin_dep = ""
+
 # --- FONKSİYONLAR ---
 def get_gol_aralik_index(toplam_gol):
     if toplam_gol == 0: return 0
@@ -66,10 +70,26 @@ st.markdown(f'<div class="ticker-wrap"><div class="ticker"><div class="ticker-it
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("🕵️ ADMİN PANELİ")
-    ev_takim = st.text_input("EV SAHİBİ:")
-    dep_takim = st.text_input("DEPLASMAN:")
+    
+    # Text inputları session state key ile bağlıyoruz
+    st.text_input("EV SAHİBİ:", key="admin_ev")
+    st.text_input("DEPLASMAN:", key="admin_dep")
+    
+    # SWAP BUTONU
+    if st.button("↔️ YER DEĞİŞTİR"):
+        # Hafızadaki verileri takas et
+        temp = st.session_state.admin_ev
+        st.session_state.admin_ev = st.session_state.admin_dep
+        st.session_state.admin_dep = temp
+        safe_rerun()
+
+    st.write("---")
     
     if st.button("BÜLTENE EKLE"):
+        # Verileri session state'ten oku
+        ev_takim = st.session_state.admin_ev
+        dep_takim = st.session_state.admin_dep
+        
         if ev_takim and dep_takim:
             m_id = st.session_state.match_id_counter
             st.session_state.matches.append({
@@ -79,6 +99,11 @@ with st.sidebar:
                 "iy_ev": None, "iy_dep": None
             })
             st.session_state.match_id_counter += 1
+            
+            # Kutuları temizle
+            st.session_state.admin_ev = ""
+            st.session_state.admin_dep = ""
+            
             st.success("MAÇ AÇILDI!")
             time.sleep(0.5)
             safe_rerun()
@@ -157,20 +182,18 @@ with tab1:
                     hata_mesajlari.append(f"❌ {mac_adi}: İY/MS veya Toplam Gol seçilmedi!")
                     continue
                 
-                # 2. İY/MS'den MS Çıkarımı ve Mantık Kontrolü
-                # Format: "1/X" -> [0]: İY, [1]: MS
+                # 2. Mantık Kontrolü
                 tahmin_ms = iyms.split("/")[1] # "1", "X" veya "2"
                 
-                # Taraf & Fark Uyumu
-                if tahmin_ms == "1": # Ev Sahibi Kazanır
+                if tahmin_ms == "1": 
                     if gf <= 0: hata_mesajlari.append(f"❌ {mac_adi}: Maç Sonu '1' (Ev) dedin, ama Fark {gf} (Pozitif olmalı!)")
                     if tg == 0: hata_mesajlari.append(f"❌ {mac_adi}: Maç Sonu '1' (Ev) dedin, ama '0' gol oynadın!")
                 
-                elif tahmin_ms == "2": # Deplasman Kazanır
+                elif tahmin_ms == "2": 
                     if gf >= 0: hata_mesajlari.append(f"❌ {mac_adi}: Maç Sonu '2' (Dep) dedin, ama Fark {gf} (Negatif olmalı!)")
                     if tg == 0: hata_mesajlari.append(f"❌ {mac_adi}: Maç Sonu '2' (Dep) dedin, ama '0' gol oynadın!")
                 
-                elif tahmin_ms == "X": # Beraberlik
+                elif tahmin_ms == "X": 
                     if gf != 0: hata_mesajlari.append(f"❌ {mac_adi}: Maç Sonu 'X' (Beraber) dedin, ama Fark {gf} (0 olmalı!)")
                 
                 # 3. Matematik Kontrolü
@@ -243,40 +266,26 @@ with tab3:
             ms_ev, ms_dep = match['score_ev'], match['score_dep']
             iy_ev, iy_dep = match['iy_ev'], match['iy_dep']
             
-            # 1. GERÇEK MS KODU (1, X, 2)
             if ms_ev > ms_dep: gercek_ms = "1"
             elif ms_ev == ms_dep: gercek_ms = "X"
             else: gercek_ms = "2"
             
-            # 2. GERÇEK İY KODU
             if iy_ev > iy_dep: gercek_iy = "1"
             elif iy_ev == iy_dep: gercek_iy = "X"
             else: gercek_iy = "2"
             
-            # 3. İY/MS Kodu (örn: "1/X")
             gercek_iyms_str = f"{gercek_iy}/{gercek_ms}"
             
-            # Kullanıcının Tahmini
-            tahmin_full = bet['iy_ms'] # "1/2"
+            tahmin_full = bet['iy_ms']
             tahmin_iy, tahmin_ms = tahmin_full.split("/")
             
-            # --- YENİ PUANLAMA MOTORU ---
+            # PUANLAMA MOTORU
             p_mac = 0
+            if tahmin_full == gercek_iyms_str: p_mac = 5
+            elif tahmin_ms == gercek_ms: p_mac = 3
+            elif tahmin_iy == gercek_iy: p_mac = 1
+            else: p_mac = 0
             
-            # SENARYO 1: TAM İSABET (5 Puan)
-            if tahmin_full == gercek_iyms_str:
-                p_mac = 5
-            # SENARYO 2: SADECE MAÇ SONUCU (3 Puan)
-            elif tahmin_ms == gercek_ms:
-                p_mac = 3
-            # SENARYO 3: SADECE İLK YARI (1 Puan)
-            elif tahmin_iy == gercek_iy:
-                p_mac = 1
-            # YOKSA 0
-            else:
-                p_mac = 0
-            
-            # Diğer Puanlar
             gtg_idx = get_gol_aralik_index(ms_ev + ms_dep)
             gfark = ms_ev - ms_dep
             
@@ -285,7 +294,6 @@ with tab3:
             
             toplam_puan = p_mac + p2 + p3
             
-            # Banko
             if bet.get('banko', False):
                 toplam_puan *= 2
                 if toplam_puan == 0: stats[u]['banko_fail'] += 1
@@ -345,7 +353,7 @@ with tab4:
                     t_iy, t_ms = t_full.split("/")
                     utg_txt = GOL_ARALIKLARI[b['tg_idx']]
                     
-                    # Puanlama Tekrarı
+                    # Puanlama
                     pm = 0
                     if t_full == real_iyms: pm = 5
                     elif t_ms == gms: pm = 3
