@@ -3,13 +3,6 @@ import pandas as pd
 import time
 import random
 
-# --- GÜVENLİ RERUN ---
-def safe_rerun():
-    try:
-        st.rerun()
-    except AttributeError:
-        st.experimental_rerun()
-
 # --- AYARLAR ---
 st.set_page_config(page_title="YTÜ CİNGEN BET", layout="wide")
 
@@ -44,8 +37,16 @@ if 'bets' not in st.session_state: st.session_state.bets = []
 if 'match_id_counter' not in st.session_state: st.session_state.match_id_counter = 0
 if 'admin_ev' not in st.session_state: st.session_state.admin_ev = ""
 if 'admin_dep' not in st.session_state: st.session_state.admin_dep = ""
+if 'msg' not in st.session_state: st.session_state.msg = "" # Mesaj göstermek için
 
-# --- FONKSİYONLAR ---
+# --- GÜVENLİ RERUN ---
+def safe_rerun():
+    try:
+        st.rerun()
+    except AttributeError:
+        st.experimental_rerun()
+
+# --- YARDIMCI FONKSİYONLAR ---
 def get_gol_aralik_index(toplam_gol):
     if toplam_gol == 0: return 0
     elif 1 <= toplam_gol <= 2: return 1
@@ -63,48 +64,61 @@ def calculate_proximity_points(actual, predicted):
         else: return 0           
     except: return 0
 
+# --- CALLBACK FONKSİYONLARI (HATA ÇÖZÜMÜ BURADA) ---
+def add_match_callback():
+    ev = st.session_state.admin_ev
+    dep = st.session_state.admin_dep
+    
+    if ev and dep:
+        m_id = st.session_state.match_id_counter
+        st.session_state.matches.append({
+            "id": m_id, "ev": ev, "dep": dep,
+            "status": "open", 
+            "score_ev": None, "score_dep": None,
+            "iy_ev": None, "iy_dep": None
+        })
+        st.session_state.match_id_counter += 1
+        # Kutuları temizle
+        st.session_state.admin_ev = ""
+        st.session_state.admin_dep = ""
+        st.session_state.msg = f"✅ {ev} vs {dep} EKLENDİ!"
+    else:
+        st.session_state.msg = "❌ Takım isimlerini gir!"
+
+def swap_callback():
+    temp = st.session_state.admin_ev
+    st.session_state.admin_ev = st.session_state.admin_dep
+    st.session_state.admin_dep = temp
+    st.session_state.msg = "↔️ Takımlar yer değiştirdi."
+
+def reset_system_callback():
+    st.session_state.matches = []
+    st.session_state.bets = []
+    st.session_state.match_id_counter = 0
+    st.session_state.msg = "♻️ SİSTEM SIFIRLANDI"
+
 # --- SAYFA ÜSTÜ ---
 st.markdown(f'<div class="ticker-wrap"><div class="ticker"><div class="ticker-item">{" | ".join(NEWS)}</div></div></div>', unsafe_allow_html=True)
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("🕵️ ADMİN PANELİ")
+    
+    # Inputlar (Key ile bağlı)
     st.text_input("EV SAHİBİ:", key="admin_ev")
     st.text_input("DEPLASMAN:", key="admin_dep")
     
-    if st.button("↔️ YER DEĞİŞTİR"):
-        temp = st.session_state.admin_ev
-        st.session_state.admin_ev = st.session_state.admin_dep
-        st.session_state.admin_dep = temp
-        safe_rerun()
-
+    # Butonlar Callback'e bağlı (on_click)
+    st.button("↔️ YER DEĞİŞTİR", on_click=swap_callback)
     st.write("---")
+    st.button("BÜLTENE EKLE", on_click=add_match_callback)
     
-    if st.button("BÜLTENE EKLE"):
-        ev_takim = st.session_state.admin_ev
-        dep_takim = st.session_state.admin_dep
-        
-        if ev_takim and dep_takim:
-            m_id = st.session_state.match_id_counter
-            st.session_state.matches.append({
-                "id": m_id, "ev": ev_takim, "dep": dep_takim,
-                "status": "open", 
-                "score_ev": None, "score_dep": None,
-                "iy_ev": None, "iy_dep": None
-            })
-            st.session_state.match_id_counter += 1
-            st.session_state.admin_ev = ""
-            st.session_state.admin_dep = ""
-            st.success("MAÇ AÇILDI!")
-            time.sleep(0.5)
-            safe_rerun()
+    # Mesaj Kutusu (Sidebar'da görünsün)
+    if st.session_state.msg:
+        st.info(st.session_state.msg)
             
     st.divider()
-    if st.button("SİSTEMİ SIFIRLA"):
-        st.session_state.matches = []
-        st.session_state.bets = []
-        st.session_state.match_id_counter = 0
-        safe_rerun()
+    st.button("SİSTEMİ SIFIRLA", on_click=reset_system_callback)
 
 # --- BAŞLIK ---
 st.markdown('<div class="baslik">💸 KAÇAK BET: ŞEFFAF MOD 💸</div>', unsafe_allow_html=True)
@@ -259,36 +273,23 @@ with tab3:
             st.markdown(f"<div style='background:#222; padding:10px; margin:5px; border-left:5px solid {color}; color:{color}; font-size:20px; font-weight:bold;'>{rank}. {usr} <span style='font-size:14px; color:#aaa;'>{rutbe}</span> <span style='float:right; color:#00ff00;'>{score} P</span></div>", unsafe_allow_html=True)
     else: st.info("Puan yok.")
 
-# --- TAB 4: CANLI KUPONLAR (YENİ!) ---
+# --- TAB 4: CANLI KUPONLAR ---
 with tab4:
     st.write("### 👀 KİM NE OYNADI? (Canlı Maçlar)")
-    
-    # Sadece AÇIK maçları bul
     acik_maclar_listesi = [m for m in st.session_state.matches if m['status'] == 'open']
-    
     if not acik_maclar_listesi:
-        st.info("Şu an oynanan aktif bir maç yok. Her şey bitmiş veya maç açılmamış.")
+        st.info("Şu an oynanan aktif bir maç yok.")
     else:
         for m in acik_maclar_listesi:
-            # Maç Başlığı
-            st.markdown(f"""
-            <div class="canli-mac-header">
-                ⚽ {m['ev']} vs {m['dep']}
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Bu maça yapılan bahisleri çek
+            st.markdown(f"<div class='canli-mac-header'>⚽ {m['ev']} vs {m['dep']}</div>", unsafe_allow_html=True)
             bu_maca_bahisler = [b for b in st.session_state.bets if b['match_id'] == m['id']]
-            
             if not bu_maca_bahisler:
                 st.warning("Henüz kimse bu maça kupon yapmadı.")
             else:
-                # Tablo verisi hazırla
                 canli_data = []
                 for b in bu_maca_bahisler:
                     tg_text = GOL_ARALIKLARI[b['tg_idx']]
                     banko_text = "🔥 EVET" if b.get('banko', False) else "-"
-                    
                     canli_data.append({
                         "KUMARBAZ": b['user'],
                         "İY / MS": b['iy_ms'],
@@ -296,11 +297,7 @@ with tab4:
                         "FARK": b['gf'],
                         "BANKO?": banko_text
                     })
-                
-                # DataFrame oluştur ve göster
-                df_canli = pd.DataFrame(canli_data)
-                st.table(df_canli)
-            
+                st.table(pd.DataFrame(canli_data))
             st.write("---")
 
 # --- TAB 5: GEÇMİŞ ---
