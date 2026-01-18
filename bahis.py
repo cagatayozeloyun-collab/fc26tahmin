@@ -11,13 +11,14 @@ def safe_rerun():
         st.experimental_rerun()
 
 # --- AYARLAR ---
-st.set_page_config(page_title="YTÜ CİNGEN BET", layout="wide")
+st.set_page_config(page_title="CENA.BET", layout="wide", page_icon="💸")
 
 # CSS
 st.markdown("""
 <style>
 .main { background-color: #0e1117; color: #00ff00; font-family: 'Courier New', monospace; }
-.baslik { color: #00ff00; text-align: center; font-size: 45px; font-weight: 900; text-shadow: 0 0 10px #00ff00; margin-bottom: 20px; }
+.baslik { color: #00ff00; text-align: center; font-size: 60px; font-weight: 900; text-shadow: 0 0 20px #00ff00; margin-bottom: 10px; letter-spacing: 5px; }
+.alt-baslik { color: #aaa; text-align: center; font-size: 20px; margin-bottom: 20px; font-style: italic; }
 .mac-kutusu { border: 2px solid #00ff00; padding: 15px; border-radius: 10px; background-color: #111; margin-bottom: 10px; }
 .bitmis-mac { border: 2px solid #555; padding: 10px; background-color: #222; margin-bottom: 20px; border-left: 5px solid gold; }
 .canli-mac-header { background-color: #003300; padding: 10px; border-radius: 5px; margin-bottom: 5px; border: 1px solid #00ff00; color: white; font-weight: bold; }
@@ -25,7 +26,7 @@ st.markdown("""
 .skor-tabela { font-size: 30px; color: gold; font-weight: 900; text-align: center; letter-spacing: 5px; }
 .oran-kutusu { background-color: #222; padding: 10px; border-radius: 5px; margin-top: 5px; text-align: center; color: #aaa; font-size: 14px;}
 .ticker-wrap { width: 100%; overflow: hidden; background-color: #000; padding-top: 10px; border-bottom: 1px solid #00ff00; }
-.ticker { display: inline-block; white-space: nowrap; animation: ticker 20s infinite linear; }
+.ticker { display: inline-block; white-space: nowrap; animation: ticker 60s infinite linear; }
 .ticker-item { display: inline-block; padding: 0 2rem; font-size: 18px; color: #00ff00; font-weight: bold; }
 @keyframes ticker { 0% { transform: translate3d(100%, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
 .stButton>button { width: 100%; background: #008800; color: white; font-weight: bold; height: 3em; border: 1px solid #00ff00; }
@@ -36,7 +37,30 @@ st.markdown("""
 # --- SABİTLER ---
 GOL_ARALIKLARI = ["0", "1-2", "3-4", "5-6", "7-8", "9+"]
 IY_MS_SECENEKLER = ["1/1", "1/X", "1/2", "X/1", "X/X", "X/2", "2/1", "2/X", "2/2"]
-NEWS = ["ŞİKE YOK, AFFETMEK YOK...", "KENDİ MAÇINA OYNAYAN DİSKALİFİYE OLUR...", "LİG KIZIŞIYOR...", "GURME BAHİSÇİLER BURAYA..."]
+
+# --- RACON SÖZLÜĞÜ (NEWS FEED) ---
+NEWS = [
+    "CENA.BET GURURLA SUNAR...",
+    "BANKO KUPON YOKTUR, AZ YATAN KUPON VARDIR...",
+    "MAAŞ YATTI, KUPONA BASTI...",
+    "HAYALLER PARİS, HAYATLAR TEK MAÇTAN YATIŞ...",
+    "KOL BOZUK DEĞİL, BİLEK BOZUK...",
+    "BU MASA KURTLAR SOFRASI, ÇAKALLARA YER YOK...",
+    "AĞLAYACAKSANIZ OYNAMAYALIM...",
+    "KUPON TUTARSA KRAL SENSİN, YATARSA CENABET...",
+    "RİSK ALMAYAN ŞAMPANYA PATLATAMAZ...",
+    "GÖZYAŞLARINIZI BİLET OLARAK KULLANABİLİRSİNİZ...",
+    "OYNADIĞIN TAKIM DEĞİL, OYNADIĞIN BAHİS KAZANSIN...",
+    "BİR SANA, BİR DE 90+ DA YATAN KUPONA HASTAYIM...",
+    "ADMİN'İN BANKOSU GELMEZ, BOŞA HEVESLENMEYİN...",
+    "PARA KAYBETMEK TECRÜBE KAZANDIRIR...",
+    "YATIRIM TAVSİYESİ DEĞİLDİR, EĞLENCE TAVSİYESİDİR...",
+    "FC26'DA AFFETMEK YOK, ACIMAK HİÇ YOK...",
+    "BURASI CENA.BET, BURADA KURALLARI BİZ KOYARIZ...",
+    "ŞİKE YAPANI SİSTEM AFFETMEZ...",
+    "MAÇI İZLEME, ORANLARI İZLE...",
+    "SON GÜLEN İYİ GÜLER, KUPONU TUTAN EN İYİ GÜLER..."
+]
 
 # --- HAFIZA ---
 if 'matches' not in st.session_state: st.session_state.matches = [] 
@@ -130,7 +154,7 @@ def reset_system_callback():
     st.session_state.msg = "♻️ HER ŞEY SIFIRLANDI"
 
 # --- SAYFA ÜSTÜ ---
-st.markdown(f'<div class="ticker-wrap"><div class="ticker"><div class="ticker-item">{" | ".join(NEWS)}</div></div></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="ticker-wrap"><div class="ticker"><div class="ticker-item">{"  ++++  ".join(NEWS)}</div></div></div>', unsafe_allow_html=True)
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -152,8 +176,9 @@ with st.sidebar:
     st.button("🔥 HER ŞEYİ SIFIRLA", on_click=reset_system_callback)
 
 # --- BAŞLIK ---
-st.markdown('<div class="baslik">💸 KAÇAK BET: ETİK MOD 💸</div>', unsafe_allow_html=True)
-st.info("ℹ️ KURAL: Ligdeki oyuncular kendi maçlarına bahis yapamaz! Dışarıdan izleyenler serbest.")
+st.markdown('<div class="baslik">💸 CENA.BET 💸</div>', unsafe_allow_html=True)
+st.markdown('<div class="alt-baslik">"Kaybetmek alışkanlık, kazanmak tercihtir."</div>', unsafe_allow_html=True)
+st.info("ℹ️ PUANLAMA: Tam İY/MS (5p) | Sadece MS (3p) | Sadece İY (1p) | Gol & Fark (5-3-1p) | Banko (x2)")
 
 # --- SEKMELER ---
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📝 KUPON YAP", "🔒 SKOR GİR", "💸 BAHİS LİGİ", "⚽ FC26 LİGİ", "👀 CANLI", "📜 GEÇMİŞ"])
@@ -188,8 +213,6 @@ with tab1:
         if st.button("KUPONU YATIR 💵"):
             hata_mesajlari = []
             banko_count = sum([1 for x in kupon_data.values() if x['banko']])
-            
-            # İsim Normalizasyonu (Büyük/Küçük harf duyarlılığını kaldırmak için)
             kullanici_clean = kullanici.strip() if kullanici else ""
             
             if not kullanici_clean: hata_mesajlari.append("İSİMSİZ KUPON OLMAZ!")
@@ -199,8 +222,7 @@ with tab1:
                 m_obj = next((x for x in acik_maclar if x['id'] == mid), None)
                 mac_adi = f"{m_obj['ev']} vs {m_obj['dep']}"
                 
-                # --- ŞİKE KONTROLÜ (YENİ!) ---
-                # Eğer kullanıcının ismi Ev Sahibi veya Deplasman ile aynıysa engelle
+                # ŞİKE KONTROLÜ
                 if kullanici_clean.lower() == m_obj['ev'].lower() or kullanici_clean.lower() == m_obj['dep'].lower():
                      hata_mesajlari.append(f"⛔ {mac_adi}: ETİK KURALI! Kendi maçına bahis yapamazsın ({kullanici_clean})!")
                      continue
